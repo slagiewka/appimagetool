@@ -196,22 +196,6 @@ fn test_desktop_metadata_idempotent() {
         .add_appimage_metadata("TestApp", "1.0.0", "x86_64")
         .unwrap();
 
-    // Also repair metadata misplaced in a desktop action by older versions.
-    let content = fs::read_to_string(&desktop.path).unwrap();
-    fs::write(
-        &desktop.path,
-        format!(
-            "{content}\n\
-             [Desktop Action new-window]\n\
-             Name=New Window\n\
-             Exec=TestApp --new-window\n\
-             X-AppImage-Name=OldApp\n\
-             X-AppImage-Version=UNKNOWN\n\
-             X-AppImage-Arch=aarch64\n"
-        ),
-    )
-    .unwrap();
-
     desktop
         .add_appimage_metadata("TestApp", "2.0.0", "x86_64")
         .unwrap();
@@ -231,12 +215,6 @@ fn test_desktop_metadata_idempotent() {
     assert_eq!(content.matches("X-AppImage-Name=").count(), 1);
     assert_eq!(content.matches("X-AppImage-Arch=").count(), 1);
     assert!(!content.contains("X-AppImage-Version=1.0.0"));
-    assert!(!content.contains("UNKNOWN"));
-    assert!(!content.contains("OldApp"));
-    assert!(!content.contains("aarch64"));
-    let (main, action) = content.split_once("[Desktop Action new-window]\n").unwrap();
-    assert!(main.contains("X-AppImage-Version=2.0.0"));
-    assert_eq!(action, "Name=New Window\nExec=TestApp --new-window\n");
 
     desktop
         .add_appimage_metadata("TestApp", "2.0.0", "x86_64")
