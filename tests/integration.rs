@@ -92,14 +92,21 @@ fn test_desktop_add_appimage_metadata() {
     create_mock_appdir(&appdir, "TestApp");
 
     let desktop = DesktopEntry::from_appdir(&appdir).unwrap();
+    let source = fs::read_to_string(&desktop.path).unwrap();
     desktop
         .add_appimage_metadata("TestApp", "1.0.0", "x86_64")
         .unwrap();
 
     let content = fs::read_to_string(&desktop.path).unwrap();
-    assert!(content.contains("X-AppImage-Name=TestApp"));
-    assert!(content.contains("X-AppImage-Version=1.0.0"));
-    assert!(content.contains("X-AppImage-Arch=x86_64"));
+    assert_eq!(
+        content,
+        format!(
+            "{source}\n\
+             X-AppImage-Name=TestApp\n\
+             X-AppImage-Version=1.0.0\n\
+             X-AppImage-Arch=x86_64\n"
+        )
+    );
 }
 
 #[test]
@@ -112,16 +119,14 @@ fn test_desktop_metadata_with_actions() {
                    [Desktop Action preferences]\n\
                    Name=Preferences\n\
                    Exec=TestApp --preferences\n";
-    let source = format!(
-        "# Desktop entry comment\n\
-         [Desktop Entry]\n\
-         Type=Application\n\
-         Version=1.0\n\
-         Name=TestApp\n\
-         Exec=TestApp\n\
-         Actions=new-window;preferences;\n\n\
-         {actions}"
-    );
+    let entry = "# Desktop entry comment\n\
+                 [Desktop Entry]\n\
+                 Type=Application\n\
+                 Version=1.0\n\
+                 Name=TestApp\n\
+                 Exec=TestApp\n\
+                 Actions=new-window;preferences;\n";
+    let source = format!("{entry}\n{actions}");
 
     for (line_ending, trailing_newline) in
         [("\n", true), ("\n", false), ("\r\n", true), ("\r\n", false)]
@@ -156,16 +161,24 @@ fn test_desktop_metadata_with_actions() {
             );
             assert_eq!(content.matches(entry).count(), 1);
         }
-        assert!(main.starts_with("# Desktop entry comment\n[Desktop Entry]\n"));
-        assert!(main.lines().any(|line| line == "Version=1.0"));
-        assert!(
-            main.lines()
-                .any(|line| line == "Actions=new-window;preferences;")
+        assert_eq!(
+            main,
+            format!(
+                "{entry}\n\
+                 X-AppImage-Name=TestApp\n\
+                 X-AppImage-Version=1.0.0\n\
+                 X-AppImage-Arch=x86_64\n\n"
+            )
         );
         assert!(
             content.ends_with(actions),
             "desktop actions should be unchanged"
         );
+
+        desktop
+            .add_appimage_metadata("TestApp", "1.0.0", "x86_64")
+            .unwrap();
+        assert_eq!(fs::read_to_string(&desktop.path).unwrap(), content);
     }
 }
 
